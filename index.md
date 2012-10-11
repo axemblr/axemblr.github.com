@@ -1,13 +1,13 @@
 ---
 layout: default
-title: Axmblr Blog
-tagline: How to put The Yellow Elephant up in the Cloud
+title: Axemblr Blog
+tagline: Apache™ Hadoop® on-demand.
 ---
 {% include JB/setup %}
 
 <div class="hero-unit" style="text-align: center;">
-    <a href="http://axemblr.com"><img src="assets/images/axemblr-logo-transparent.png" alt="Axemblr Software Solutions Logo" width="15%"/></a>
-    <h3 style="padding: 20px; padding-left: 0px;">How to put the <a href="http://hadoop.apache.org/">Yello Elephant</a> Up! in the Cloud</h3>
+    <a href="http://axemblr.com"><img src="assets/images/axemblr-logo-transparent.png" alt="Axemblr Software Solutions Logo" width="25%"/></a>
+    <h3 style="padding: 20px; padding-left: 0px;">Apache™ Hadoop® on-demand.</h3>
 </div>
 
 <ul class="unstyled">
