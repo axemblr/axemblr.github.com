@@ -15,8 +15,8 @@ tagline: Apache™ Hadoop® on-demand
 author :
   name : Axemblr
   email : hello@axemblr.com
+  github: axemblr
   twitter : Axemblr
-  feedburner : feedname
 
 # The production_url is only used when full-domain names are needed
 # such as sitemap.txt 
