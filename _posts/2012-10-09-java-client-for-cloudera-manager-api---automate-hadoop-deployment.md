@@ -11,9 +11,9 @@ tags: [automation]
 
 ##Motivation 
 
-Here at <a href="http://axembrl.com/">Axembrl</a> we have a great desire: to be Number 1 at delivering <a href="http://hadoop.apache.org/">Hadoop</a> on Cloud infrastructure. And because of that, things like packaging, installing and configuring Hadoop are not our primary focus. We still need them but hey, let somebody else do it. Especially if that somebody else does a great job, like the people from <a href="http://cloudera.com">Cloudera</a> do. 
+Here at <a href="http://axemblr.com/">Axemblr</a> we have a great desire: to be Number 1 at delivering <a href="http://hadoop.apache.org/">Hadoop</a> on Cloud infrastructure. And because of that, things like packaging, installing and configuring Hadoop are not our primary focus. We still need them but hey, let somebody else do it. Especially if that somebody else does a great job, like the people from <a href="http://cloudera.com">Cloudera</a> do. 
 
-In the pursuit of our greatest desire (second only to coffee early in the morning) we ended up writing a Java client for Cloudera Manager's API. Thus we achieved to automate a CDH3 Hadoop installation on Amazon EC2 and Rackspace Clood. We also decided to open source the client so other people can play along. Of course such an achievement also requires us to brag about it so I hope you will enjoy and learn from my short presentation of hot to deploy Hadoop on cloud infrastructure with Cloudera Manager!
+In the pursuit of our greatest desire (second only to coffee early in the morning) we ended up writing a Java client for Cloudera Manager's API. Thus we achieved to automate a CDH3 Hadoop installation on Amazon EC2 and Rackspace Clood. We also decided to open source the client so other people can play along. 
 
 ###The problem 
 
