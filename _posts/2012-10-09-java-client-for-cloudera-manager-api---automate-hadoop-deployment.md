@@ -11,7 +11,7 @@ tags: [automation]
 
 ##Motivation 
 
-Here at <a href="http://axembrl.com/">Axemblr</a> we have a great desire: to be Number 1 at delivering <a href="http://hadoop.apache.org/">Hadoop</a> on Cloud infrastructure. And because of that, things like packaging, installing and configuring Hadoop are not our primary focus. We still need them but hey, let somebody else do it. Especially if that somebody else does a great job, like the people from <a href="http://cloudera.com">Cloudera</a> do. 
+Here at <a href="http://axembrl.com/">Axembrl</a> we have a great desire: to be Number 1 at delivering <a href="http://hadoop.apache.org/">Hadoop</a> on Cloud infrastructure. And because of that, things like packaging, installing and configuring Hadoop are not our primary focus. We still need them but hey, let somebody else do it. Especially if that somebody else does a great job, like the people from <a href="http://cloudera.com">Cloudera</a> do. 
 
 In the pursuit of our greatest desire (second only to coffee early in the morning) we ended up writing a Java client for Cloudera Manager's API. Thus we achieved to automate a CDH3 Hadoop installation on Amazon EC2 and Rackspace Clood. We also decided to open source the client so other people can play along. Of course such an achievement also requires us to brag about it so I hope you will enjoy and learn from my short presentation of hot to deploy Hadoop on cloud infrastructure with Cloudera Manager!
 
@@ -41,7 +41,10 @@ Our purpose is to create a VM with Cloudera Manager and CDH3 pre-installed as Cl
 First get the <a href="https://github.com/axemblr/cloudera-manager-api">sources</a>, and export an environment variable for easy reference: 
 
 {% highlight bash %}
-    $ git clone git://github.com/axemblr/cloudera-manager-api.git && cd cloudera-manager-api && export CLIENT=`pwd`
+
+$ git clone git://github.com/axemblr/cloudera-manager-api.git
+$ cd cloudera-manager-api && export CLIENT=`pwd`
+
 {% endhighlight %}
 
 ### Making our base VM 
@@ -49,7 +52,9 @@ First get the <a href="https://github.com/axemblr/cloudera-manager-api">sources<
 This should be quite simple because I have prepared a script that does all the work. The next line will create a new virtual machine and install Hadoop and Cloudera Manager on it.
 
 {% highlight bash %}
-      $ cd $CLIENT/src/test/resources/vagrant/build-image && vagrant up     
+
+$ cd $CLIENT/src/test/resources/vagrant/build-image && vagrant up     
+
 {% endhighlight %}
 
 Vagrant will first download a Ubuntu Lucid amd64 *box*, named **lucid64** from <a href="http://files.vagrantup.com/lucid64.box">Vagrant website</a> if it does not yet exist. After this it will run a provisioning script to install Cloudera Manger Server, Agent and also Cloudera CDH3 because we can't do that via API. The script is right besides the *Vagrant* configuration file and is called **install-cm-and-cdh.sh**
@@ -57,15 +62,17 @@ Vagrant will first download a Ubuntu Lucid amd64 *box*, named **lucid64** from <
 We should have a VM with all the goodies installed. You could check if Cloudera Manager is working by logging in the machine and checking port 7800.
 
 {% highlight bash %}
-      $ vagrant ssh
-      vagrant@lucid64$ netstat -tupan | grep 7180
+
+$ vagrant ssh
+$ vagrant@lucid64$ netstat -tupan | grep 7180
+
 {% endhighlight %}
 
 Now that things work let's pack this box and register it as a vagrant template so we can create as many identical machines we like. 
 
 {% highlight bash %}
-      $ vagrant package 
-      $ vagrant box add lucid64-with-cm4 package.box
+$ vagrant package 
+$ vagrant box add lucid64-with-cm4 package.box
 {% endhighlight %}
 
 This should complete the set-up. Now we have a vagrant box called **lucid64-with-cm4** and we can start as many VM's as our RAM holds. 
@@ -75,7 +82,7 @@ We have a VM with Hadoop installed and now we have to configure and start a clus
 We will configure and start our cluster from Java code so we need to have network access to the machine. We will configuring Vagrant with <a href="http://vagrantup.com/v1/docs/host_only_networking.html">Host-Only Networking</a>. We also need to give our future VM enough memory, 2GB should be enough. 
 
 {% highlight bash %}
-      $ cd $CLIENT/src/test/resources/vagrant/
+$ cd $CLIENT/src/test/resources/vagrant/
 {% endhighlight %}
 
 In this directory you can see the final Vagrant configuration file that looks something like this:
@@ -118,17 +125,16 @@ We are going to write a (junit) test that does the following:
 Since we need the VM before we run our tests we will put this in a *@BeforeClass* method.
 
 {% highlight java %}
-  @BeforeClass
-  public static void setUpResources() throws Exception {
-    //start the VM
-    processBuilder.directory(new File(VAGRANT_CONFIG_PATH).getCanonicalFile());
-    runAndWait(processBuilder, 5, VAGRANT_CMD, "up");
-    TimeUnit.SECONDS.sleep(30); 
-    // wait until Cloudera Manager Service starts
-    CLIENT = ClouderaManagerClient.withConnectionURI(ENDPOINT)
-             .withAuth("admin", "admin").build();
-    CLIENT.enableHttpLogging(true);
-  }
+@BeforeClass
+public static void setUpResources() throws Exception {
+//start the VM
+processBuilder.directory(new File(VAGRANT_CONFIG_PATH).getCanonicalFile());
+runAndWait(processBuilder, 5, VAGRANT_CMD, "up");
+TimeUnit.SECONDS.sleep(30); // wait until Cloudera Manager Service starts
+CLIENT = ClouderaManagerClient.withConnectionURI(ENDPOINT)
+        .withAuth("admin", "admin").build();
+CLIENT.enableHttpLogging(true);
+}
 {% endhighlight %}
 
 In the above code we make use of a *<a href="http://docs.oracle.com/javase/7/docs/api/java/lang/ProcessBuilder.html">java.lang.ProcessBuilder</a>* to call *vagrant up* as a separate process and wait for the command to finish.
@@ -139,54 +145,56 @@ The helper function *runAndWait* takes care of starting the process and waiting 
 
 {% highlight java %}
 
-  private static void runAndWait(ProcessBuilder pBuilder, 
-      long minutesToWait,  String... commands) throws IOException {
-    pBuilder.command(commands);
-    pBuilder.redirectErrorStream(true);
-    Timer timer = null;
-    Process process = null;
-    try {
-      final Thread currentThread = Thread.currentThread();
-      timer = new Timer(true);
-      // interrupt the current thread so we avoid waiting indefinitely for Process.waitFor();
-      timer.schedule(new TimerTask() {
-        @Override
-        public void run() {
-          currentThread.interrupt();
-        }
-      }, TimeUnit.MINUTES.toMillis(minutesToWait));
-      process = pBuilder.start();
-      EXECUTOR.execute(new StreamGobbler(process.getInputStream(), "INPUT"));
-      process.waitFor();
-     } catch (InterruptedException interruptedException) {
-      LOGGER.severe("Timeout exceeded. Killing the process as it probably hanged.");
-      process.destroy();
-    } catch (Exception e) {
-      LOGGER.severe("Exception starting vagrant VM");
-      LOGGER.severe(e.getMessage());
-    } finally {
-      // If the process returns within the timeout period, we have to stop the interrupter
-      // so that it does not unexpectedly interrupt some other code later.
-      timer.cancel();
-      // We need to clear the interrupt flag on the current thread just in case
-      // interrupter executed after waitFor had already returned but before timer.cancel
-      // took effect.
-      //
-      // Oh, and there's also Sun bug 6420270 to worry about here.
-      Thread.interrupted();
-    }
+private static void runAndWait(ProcessBuilder pBuilder, 
+    long minutesToWait,  String... commands) throws IOException {
+
+pBuilder.command(commands);
+pBuilder.redirectErrorStream(true);
+Timer timer = null;
+Process process = null;
+  try {
+    final Thread currentThread = Thread.currentThread();
+    timer = new Timer(true);
+    // interrupt the current thread so we avoid waiting indefinitely 
+    timer.schedule(new TimerTask() {
+      @Override
+      public void run() {
+        currentThread.interrupt();
+      }
+    }, TimeUnit.MINUTES.toMillis(minutesToWait));
+    process = pBuilder.start();
+    EXECUTOR.execute(new StreamGobbler(process.getInputStream(), "INPUT"));
+    process.waitFor();
+  } catch (InterruptedException interruptedException) {
+    LOGGER.severe("Timeout exceeded. Killing the process as it probably hanged.");
+    process.destroy();
+  } catch (Exception e) {
+    LOGGER.severe("Exception starting vagrant VM");
+    LOGGER.severe(e.getMessage());
+  } finally {
+    // If the process returns within the timeout period, we have to stop the 
+    // interrupter so that it does not unexpectedly interrupt some other code 
+    // later.
+    timer.cancel();
+    // We need to clear the interrupt flag on the current thread just in case
+    // interrupter executed after waitFor had already returned but before timer.
+    // cancel took effect.
+    //
+    // Oh, and there's also Sun bug 6420270 to worry about here.
+    Thread.interrupted();
   }
+}
 
 {% endhighlight %}
 
 We want our tests to be ignored and not fail if something bad happened and the VM or services have not started so we create a *@Before* method that uses jUnit *asumeTrue* to check for a necessary condition. If it's met we run the test, otherwise junit will ignore it. 
 
 {% highlight java %}
-  @Before
-  public void setUp() throws Exception {
-    // this will ignore tests if the endpoint is not accessible
-    assumeTrue(isEndpointActive(ENDPOINT));
-  }
+@Before
+public void setUp() throws Exception {
+  // this will ignore tests if the endpoint is not accessible
+  assumeTrue(isEndpointActive(ENDPOINT));
+}
 {% endhighlight %}
 
 ### Using Cloudera Manager Java API
@@ -196,9 +204,12 @@ All interactions with CM will be done through an instance of class *ClouderaMana
 **Creating the client**
 
 {% highlight java %}
-    final URI ENDPOINT = URI.create(String.format("http://%s:%d", CM_SERVICE_IP, CM_SERVICE_PORT));
+
+final URI ENDPOINT = URI.create(String.format("http://%s:%d", CM_SERVICE_IP,7180));
+
 ClouderaManagerClient CLIENT = ClouderaManagerClient.withConnectionURI(ENDPOINT)
     .withAuth("admin", "admin").build();
+
 {% endhighlight %}
 
 Now we can use the client to make HTTP requests to the server and drive our cluster. Before we dive in, a few words about the Client:
@@ -218,13 +229,15 @@ Creating a cluster with Cloudera Manager usually goes like this: You first creat
 The first thing we need to do is register hosts that CM will use as cluster nodes. This is the host discovery step from the CM Web interface except that it does not do node installation (does not install CM agent or CDH). This is why we had to do it by hand. 
 
 {% highlight java %}
-    HostList hosts = null;
-    try {
-      hosts = CLIENT.hosts().createHosts(Sets.newHashSet(
-          new Host("192.168.33.10", "lucid64")));
-    } catch (UniformInterfaceException e) {
-      LOGGER.info(e.getResponse().getEntity(ErrorMessage.class).toString());
-    }
+
+HostList hosts = null;
+try {
+     hosts = CLIENT.hosts().createHosts(Sets.newHashSet(
+     new Host("192.168.33.10", "lucid64")));
+} catch (UniformInterfaceException e) { 
+  LOGGER.info(e.getResponse().getEntity(ErrorMessage.class).toString());
+}
+  
 {% endhighlight %}
 
 **Create a cluster**
@@ -233,8 +246,8 @@ The following code will create a cluster named *cluster-01* . A cluster is just 
 
 {% highlight java %}
 
-    Cluster cluster = new Cluster("cluster-01", ClusterVersion.CDH3);
-    ClusterList created = CLIENT.clusters().createClusters(Sets.newHashSet(cluster));
+Cluster cluster = new Cluster("cluster-01", ClusterVersion.CDH3);
+ClusterList created = CLIENT.clusters().createClusters(Sets.newHashSet(cluster));
 
 {% endhighlight%}
 
@@ -247,16 +260,23 @@ Server requests return a representation of the model stored. For example creatin
 return a *ServiceList* object that has information about the service. Most requests or responses will require a list or set of objects. Use a list with one element if you don't need more.
 
 {% highlight java %}
-    // create a HDFS Service
-    ServiceList serviceList = CLIENT.clusters().getCluster("cluster-01").registerServices(new ServiceSetupList(new ServiceSetupInfo("hdfs-01", ServiceType.HDFS)));
 
-    // assign HDFS roles to machines
-    Role nameNodeSetup = new Role("hdfs-nn", RoleType.NAMENODE, new HostRef("lucd64"));
-    Role secondaryNameNodeSetup = new Role("hdfs-secondary", RoleType.SECONDARYNAMENODE, new HostRef("lucid64"));
-    Role dataNodeSetup = new Role("hdfs-data1", RoleType.DATANODE, new HostRef("lucid64"));
+// create a HDFS Service
+ServiceSetupInfo hdfsSetup = new ServiceSetupInfo("hdfs-01", ServiceType.HDFS);
+ServiceList serviceList = CLIENT.clusters().getCluster("cluster-01")
+        .registerServices(new ServiceSetupList(jdfsSetup));
 
-    RoleList createdRoles = CLIENT.clusters().getCluster("cluster-01").
-    getService("hdfs-01").createRoles(new RoleList(Sets.newHashSet(nameNodeSetup, secondaryNameNodeSetup, dataNodeSetup)));
+// assign HDFS roles to machines
+Role nameNodeSetup = new Role("hdfs-nn", RoleType.NAMENODE, new HostRef("lucd64"));
+Role secondaryNameNodeSetup = new Role("hdfs-secondary", RoleType.SECONDARYNAMENODE,
+ new HostRef("lucid64"));
+Role dataNodeSetup = new Role("hdfs-data1", RoleType.DATANODE, 
+new HostRef("lucid64"));
+
+Set<Role> roleSet = Sets.newHashSet(nameNodeSetup, secondaryNameNodeSetup, dataNodeSetup);
+
+RoleList createdRoles = CLIENT.clusters().getCluster("cluster-01")
+    .getService("hdfs-01").createRoles(new RoleList(roleSet));
     
 {%endhighlight%}
 
@@ -268,22 +288,27 @@ For commands that don't finish right away use *waitFor* method to block until th
 One of these commands is *hdfsFormat*, an operation required before starting our service.
 
 {% highlight java %}
-    Config nameNodeDataDir = new Config(DFS_NAME_DIR_LIST, "/tmp/nn");
-    ConfigList configList = CLIENT.clusters().getCluster("cluster-01").getService("hdfs-01")
-        .updateRoleConfig("hdfs-nn", new ConfigList(nameNodeDataDir));
 
-    Config hdfsCheckPointDir = new Config(FS_CHECKPOINT_DIR_LIST, "/tmp/checkpoints");
-    configList = CLIENT.clusters().getCluster("cluster-01").getService("hdfs-01")
-        .updateRoleConfig("hdfs-secondary", new ConfigList(hdfsCheckPointDir));
+// keep the service API resources for easy access 
+ServiceApi hdfsApi = CLIENT.clusters().getCluster("cluster-01")
+                                .getService("hdfs-01");
+Config nameNodeDataDir = new Config(DFS_NAME_DIR_LIST, "/tmp/nn");
+ConfigList configList = hdfsApi.updateRoleConfig("hdfs-nn", 
+                                new ConfigList(nameNodeDataDir));
 
-    Config datanodeDataDir = new Config(DFS_DATA_DIR_LIST, "/tmp/datanode");
-    configList = CLIENT.clusters().getCluster("cluster-01").getService("hdfs-01")
-        .updateRoleConfig("hdfs-data1", new ConfigList(datanodeDataDir));
+Config hdfsCheckPointDir = new Config(FS_CHECKPOINT_DIR_LIST, "/tmp/checkpoints");
 
-    BulkCommandList commands = CLIENT.clusters().getCluster("cluster-01")
-        .getService("hdfs-01").hdfsFormat(new RoleNameList("hdfs-nn"));
-    // wait for the commands to finish        
-    List<Command> result = CLIENT.commands().waitFor(commands);
+configList = hdfsApi.updateRoleConfig("hdfs-secondary", 
+                                new ConfigList(hdfsCheckPointDir));
+
+Config datanodeDataDir = new Config(DFS_DATA_DIR_LIST, "/tmp/datanode");
+configList = hdfsApi.updateRoleConfig("hdfs-data1", 
+                                new ConfigList(datanodeDataDir));
+
+BulkCommandList commands = hdfsApi.hdfsFormat(new RoleNameList("hdfs-nn"));
+// wait for the commands to finish        
+List<Command> result = CLIENT.commands().waitFor(commands);
+
 {% endhighlight %}
 
 **Start the HDFS service**
@@ -291,14 +316,18 @@ One of these commands is *hdfsFormat*, an operation required before starting our
 Starting the service is a one liner and like the rest of the commands returns immediately but it takes a while until the command finishes it's execution. Because other services depend on a HDFS service we will have to wait until it's started. 
 
 {% highlight java%}
-    // start the service
-    Command command = CLIENT.clusters().getCluster(CLUSTER_NAME).getService(HDFS_SERVICE_NAME).start();
-    command = CLIENT.commands().waitFor(command);
-    if ( command.isSuccess() ) {
-        LOGGER.info("HDFS cluster started successfully!");
-    } else {
-        LOGGER.info("Error starting cluster!");
-    }    
+
+// start the service
+Command command = CLIENT.clusters().getCluster(CLUSTER_NAME)
+                            .getService("hdfs-1").start();
+command = CLIENT.commands().waitFor(command);
+
+if ( command.isSuccess() ) {
+  LOGGER.info("HDFS cluster started successfully!");
+} else {
+  LOGGER.info("Error starting cluster!");
+}    
+
 {% endhighlight %}
 
 **Other services**
