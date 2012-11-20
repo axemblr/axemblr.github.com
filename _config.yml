@@ -28,6 +28,12 @@ author :
 #
 production_url : http://blog.axemblr.com
 
+##
+# https://github.com/snaptortoise/jekyll-rss-feeds 
+name: Axemblr Blog
+description: Apache™ Hadoop® on-demand
+url: http://blog.axemblr.com
+
 # All Jekyll-Bootstrap specific configurations are namespaced into this hash
 #
 JB :
